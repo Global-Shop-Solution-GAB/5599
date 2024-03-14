@@ -1,0 +1,822 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Variable.UDT.uATG.Define("BIRUNID",Long)
+Variable.UDT.uATG.Define("PO",String)
+Variable.UDT.uATG.Define("PO_Line",String)
+Variable.UDT.uATG.Define("Part",String)
+Variable.UDT.uATG.Define("Loc",String)
+Variable.UDT.uATG.Define("Lot",String)
+Variable.UDT.uATG.Define("Bin",String)
+Variable.UDT.uATG.Define("Heat",String)
+Variable.UDT.uATG.Define("Serial",String)
+Variable.UDT.uATG.Define("Qty",float)
+Variable.UDT.uATG.Define("Length",Float)
+Variable.UDT.uATG.Define("Length_Um",String)
+Variable.UDT.uATG.Define("Width",Float)
+Variable.UDT.uATG.Define("Width_Um",string)
+Variable.UDT.uATG.Define("Total_Qty",float)
+Variable.UDT.uATG.Define("Total_Um",String)
+Variable.UDT.uATG.Define("DFAR",String)
+Variable.UDT.uATG.Define("USMELT",String)
+Variable.UDT.uATG.Define("USMFG",String)
+Variable.UDT.uATG.Define("DESCRIPTION",String)
+Variable.UDT.uATG.Define("Inventory_Um",String)
+Variable.UDT.uATG.Define("PKG",String)
+Variable.UDT.uATG.Define("Vendor",String)
+Variable.UDT.uATG.Define("Order_No",String)
+Variable.UDT.uATG.Define("Invoice",String)
+Variable.UDT.uATG.Define("Job",String)
+Variable.UDT.uATG.Define("Suffix",String)
+Variable.UDT.uATG.Define("Seq",String)
+Variable.UDT.uATG.Define("USER_1",String)
+Variable.UDT.uATG.Define("USER_2",String)
+Variable.UDT.uATG.Define("Pcking_list_no",String)
+Variable.UDT.uATG.Define("Date_Rcvd",date)
+Variable.uGlobal.ATG.Declare("uATG")
+
+F.Data.DataTable.Create("Issue_Label",True)
+F.Data.DataTable.AddColumn("Issue_Label","BIRUNID",String)
+F.Data.DataTable.AddColumn("Issue_Label","Part",String)
+F.Data.DataTable.AddColumn("Issue_Label","PartDesc",String)
+F.Data.DataTable.AddColumn("Issue_Label","PO",String)
+F.Data.DataTable.AddColumn("Issue_Label","Invoice",String)
+F.Data.DataTable.AddColumn("Issue_Label","Vendor",String)
+F.Data.DataTable.AddColumn("Issue_Label","SO",String)
+F.Data.DataTable.AddColumn("Issue_Label","WO",String)
+F.Data.DataTable.AddColumn("Issue_Label","WOSuffix",String)
+F.Data.DataTable.AddColumn("Issue_Label","WOSeq",String)
+F.Data.DataTable.AddColumn("Issue_Label","PackingListNo",String)
+F.Data.DataTable.AddColumn("Issue_Label","DateRecd",String)
+F.Data.DataTable.AddColumn("Issue_Label","TotalQty",String)
+F.Data.DataTable.AddColumn("Issue_Label","Bin",String)
+F.Data.DataTable.AddColumn("Issue_Label","Length",String)
+F.Data.DataTable.AddColumn("Issue_Label","Width",String)
+F.Data.DataTable.AddColumn("Issue_Label","Serial",String)
+F.Data.DataTable.AddColumn("Issue_Label","Length_UM",String)
+F.Data.DataTable.AddColumn("Issue_Label","Width_UM",String)
+F.Data.DataTable.AddColumn("Issue_Label","InventoryUM",String)
+
+
+
+V.Global.iBIRUNID.Declare(Long)
+V.Global.iLogID.Declare(Long)
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: jct
+'Project Start Date: 12/28/2010
+'Hooks:28862, 10120, 10230  (some called from other GAB scripts)
+'for GKD
+
+V.Local.sLabelLoc.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sUpdate.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sLoc.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sSelA.Declare(String)
+V.Local.sDelete.Declare(String)
+V.Local.sSerial.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sRcvr.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.sLabelName.Declare(String)
+
+V.Local.fWidth.Declare(Float)
+V.Local.fLength.Declare(Float)
+
+V.Local.lWidths.Declare(Long)
+V.Local.lRptID.Declare(Long)
+V.Local.lLine.Declare(Long)
+V.Local.lRet.Declare(Long)
+
+V.Local.bDir.Declare(Boolean)
+
+'open odbc connection
+F.ODBC.Connection!Con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+'verify directory exists...if not, create it
+F.Intrinsic.String.Concat(V.Caller.BusintDir,"\Labels",V.Local.sDir)
+F.Intrinsic.File.DirExists(V.Local.sDir,V.Local.bDir)
+	F.Intrinsic.Control.If(V.Local.bDir,=,False)
+		F.Intrinsic.File.CreateDir(V.Local.sDir)
+	F.Intrinsic.Control.EndIf
+
+'================Issue Material=================
+F.Intrinsic.Control.If(V.Caller.Hook,=,28860)
+	F.Intrinsic.Control.CallSub(Issues)
+
+'===============Drops=====================
+F.Intrinsic.Control.Elseif(V.Caller.Hook,=,28862)
+	F.Intrinsic.Control.CallSub(Drops)
+
+'===============Drops=====================
+F.Intrinsic.Control.elseIf(V.Caller.Hook,=,29610)
+	V.Passed.000204.Set("Print Label")
+	F.ODBC.Connection!Con.Close
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Elseif(V.Caller.hook,=,29660)
+	F.Intrinsic.Control.CallSub(Adddrops)
+
+'===============Inventory Master=======================
+F.Intrinsic.Control.Elseif(V.Caller.Hook,=,10120)
+'switches are O=Open;N=New;V=View
+	F.Intrinsic.Control.If(V.Caller.Switches,=,"O")
+		V.Passed.000070.Set("Print Label")
+	F.Intrinsic.Control.elseIf(V.Caller.Switches,=,"N")
+		V.Passed.000070.Set("Print Label")
+	F.Intrinsic.Control.elseIf(V.Caller.Switches,=,"V")
+		V.Passed.000070.Set("Print Label")
+	F.Intrinsic.Control.EndIf
+	F.ODBC.Connection!Con.Close
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Elseif(V.Caller.Hook,=,10230)
+	F.Intrinsic.Control.CallSub(Inventory_label)
+
+'============otherwise end====================
+F.Intrinsic.Control.Else
+	F.ODBC.Connection!Con.Close
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.EndIf
+
+'F.Intrinsic.Control.CallSub(Inventory_Label)
+
+'==============Print Label======================
+'F.Intrinsic.Control.If(V.Caller.CompanyCode,=,"GKD")
+'	V.Local.sLabelName.Set("SF_Issue_Drop_lbl_GKD.btw")
+'	F.Intrinsic.String.Concat(V.Local.sDir,"\SF_Issue_Drop_lbl_GKD.btw",V.Local.sLabelLoc)
+'F.Intrinsic.Control.ElseIf(V.Caller.CompanyCode,=,"TST")
+'	V.Local.sLabelName.Set("SF_Issue_Drop_lbl_TST.btw")
+'	F.Intrinsic.String.Concat(V.Local.sDir,"\SF_Issue_Drop_lbl_TST.btw",V.Local.sLabelLoc)
+'F.Intrinsic.Control.ElseIf(V.Caller.CompanyCode,=,"JCG")
+'	V.Local.sLabelName.Set("SF_Issue_Drop_lbl_JCG.btw")
+'	F.Intrinsic.String.Concat(V.Local.sDir,"\SF_Issue_Drop_lbl_JCG.btw",V.Local.sLabelLoc)
+'F.Intrinsic.Control.EndIf
+
+'F.Global.BI.InitializeReport(V.Local.sLabelName,V.Local.sLabelLoc,V.Local.lRptID)
+
+'	F.Intrinsic.String.Concat("update BI_RPT set RPT_TYPE='B' where RPT_ID='",V.Local.lRptID,"'",V.Local.sUpdate)
+'	F.ODBC.Connection!con.Execute(V.Local.sUpdate)
+
+'V.Local.sParams.Set("TRMNL")
+'V.Local.sValues.Set(V.Caller.Terminal)
+
+'F.Intrinsic.Control.DoUntil(V.Local.lRet,=,6)
+'F.Global.BI.PrintBartenderLabel(V.Local.lRptID,0,V.Local.sParams,V.Local.sValues,True,"",1)
+'	F.Intrinsic.UI.Msgbox("Did label print correctly?","",4,V.Local.lRet)
+'F.Intrinsic.Control.Loop
+
+F.ODBC.Connection!Con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Main.End
+
+Program.Sub.Inventory_Label.Start
+
+V.Local.sLabelLoc.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sUpdate.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sLoc.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sSelA.Declare(String)
+V.Local.sDelete.Declare(String)
+V.Local.sSerial.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sRcvr.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.sLabelName.Declare(String)
+V.Local.sBrowse.Declare(String)
+V.Local.sRec.Declare(String)
+
+V.Local.fWidth.Declare(Float)
+V.Local.fLength.Declare(Float)
+
+V.Local.lWidths.Declare(Long)
+V.Local.lRptID.Declare(Long)
+V.Local.lLine.Declare(Long)
+V.Local.lRet.Declare(Long)
+V.Local.iReportID.Declare(Long)
+V.Local.sPrinter.Declare(String)
+
+F.Global.BI.GetIDFromName("GCG_SF_ISSUE_DRP_LBL.lab",True,V.Local.iReportID)
+
+F.Intrinsic.Control.If(V.Local.iReportID,=,-1)
+	F.Intrinsic.String.Build("{0}\Labels\GCG_SF_ISSUE_DRP_LBL.lab",V.Caller.BusintDir,V.Local.sDir)
+	F.Global.BI.InitializeReport("GCG_SF_ISSUE_DRP_LBL.lab",V.Local.sDir,V.Local.iReportID)
+F.Intrinsic.Control.EndIf
+
+F.Global.BI.GetRunID(V.Global.iBIRUNID)
+F.Global.BI.StartLogging(V.Global.iBIRUNID,V.Local.iReportID,-1,"GCG_SF_ISSUE_DRP_LBL.lab",V.Global.iLogID)
+
+
+'set field references for inventory screen
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Part,"Part")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Bin")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Serial,"Serial")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length,"Length")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length_Um,"Length_Um")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width,"Width")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width_Um,"Width_Um")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total")
+'Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"Total_Um")
+
+'get part from screen
+	V.Local.sPart.Set(V.Passed.000007)
+	'V.Local.sPart.Set("0025")
+'browser title row
+		F.Intrinsic.String.Split("Part*!*Locn*!*Lot*!*Bin*!*Heat*!*Serial*!*Length*!*Width*!*On Hand","*!*",V.Local.sTitles)
+'browser column widths
+		F.Intrinsic.String.Split("1500*!*500*!*1000*!*1000*!*1000*!*2000*!*1000*!*1000*!*1000","*!*",V.Local.lWidths)
+'browser selection
+	F.Intrinsic.String.Concat("select PART,LOCN,LOT,BIN,HEAT,SERIAL,LENGTH,WIDTH,TOTAL from ATG_ITMST_LEN_WIDTH where PART='",V.Local.sPart.Trim,"' order by SERIAL",V.Local.sSel)
+	F.ODBC.Connection!Con.OpenRecordsetRO("rstSel",V.Local.sSel)
+		F.Intrinsic.Control.DoUntil(V.ODBC.Con!rstSel.EOF,=,True)
+			F.ODBC.Con!rstSel.Record2String(V.Local.srec)
+			F.Intrinsic.String.Split(V.Local.sRec,"*!*",V.Local.sRec)
+			F.Intrinsic.String.Trim(V.Local.sRec(0),V.Local.sRec(0))
+			F.Intrinsic.String.Trim(V.Local.sRec(1),V.Local.sRec(1))
+			F.Intrinsic.String.Trim(V.Local.sRec(2),V.Local.sRec(2))
+			F.Intrinsic.String.Trim(V.Local.sRec(3),V.Local.sRec(3))
+			F.Intrinsic.String.Trim(V.Local.sRec(4),V.Local.sRec(4))
+			F.Intrinsic.String.Trim(V.Local.sRec(5),V.Local.sRec(5))
+			F.Intrinsic.Math.Round(V.Local.sRec(6).Float,4,V.Local.sRec(6))
+			F.Intrinsic.Math.Round(V.Local.sRec(7).Float,4,V.Local.sRec(7))
+			F.Intrinsic.Math.Round(V.Local.sRec(8).Float,4,V.Local.sRec(8))
+			F.Intrinsic.String.Join(V.Local.sRec,"*!*",V.Local.sRec)
+			F.Intrinsic.Control.If(V.Local.sBrowse.Trim,=,"")
+				V.Local.sBrowse.Set(V.Local.sRec)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sBrowse,V.Ambient.NewLine,V.Local.sRec,V.Local.sBrowse)
+			F.Intrinsic.Control.EndIf
+		F.ODBC.Con!rstSel.MoveNext
+		F.Intrinsic.Control.Loop
+Function.Intrinsic.Debug.Stop
+
+		F.Intrinsic.UI.Browser("Part","Con",V.Local.sSel,V.Local.sTitles,V.Local.lWidths,10700,10000,V.Local.sRet)
+'		F.Intrinsic.UI.BrowserFromString("Part",V.Local.sBrowse,"*!*",V.Ambient.NewLine,V.Local.sTitles,V.Local.lWidths,10700,10000,V.Local.sRet)
+			F.Intrinsic.Control.If(V.Local.sRet,=,"***CANCEL***")
+				F.ODBC.Connection!Con.Close
+				F.Intrinsic.Control.End
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+				V.Local.sSerial.Set(V.Local.sRet(5))
+			F.Intrinsic.Control.EndIf
+
+'many condition select statement
+	F.Intrinsic.String.Concat("select Part,Bin,Serial,Length, Width,Length_Um, Width_Um from ATG_ITMST_LEN_WIDTH","",V.Local.sSel)
+	F.Intrinsic.String.Concat(V.Local.sSel," where ATG_ITMST_LEN_WIDTH.PART ='",V.Local.sPart.Trim,"' and SERIAL ='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			F.Data.DataTable.AddRow("Issue_Label","Part",V.ODBC.Con!rstX.FieldValTrim!Part,"Bin",V.ODBC.Con!rstX.FieldValTrim!Bin,"Serial",V.ODBC.Con!rstX.FieldValTrim!Serial,"Length",V.ODBC.Con!rstX.FieldValTrim!Length,"Width",V.ODBC.Con!rstX.FieldValTrim!Width,"Length_UM",V.ODBC.Con!rstX.FieldValTrim!Length_UM,"Width_UM",V.ODBC.Con!rstX.FieldValTrim!Width_UM)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select  INVENTORY_MSTR.DESCRIPTION,INVENTORY_MSTR.UM_INVENTORY from INVENTORY_MSTR where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			F.Data.DataTable.SetValue("Issue_Label",0,"InventoryUM",V.ODBC.Con!rstX.FieldValTrim!UM_Inventory)
+			F.Data.DataTable.SetValue("Issue_Label",0,"PartDesc",V.ODBC.Con!rstX.FieldValTrim!Description)
+		F.Intrinsic.Control.endif
+	F.ODBC.Con!rstX.Close
+
+'see if part is a roll; if it is, default the UM to IN
+	F.Intrinsic.String.Concat("select ROLL from INVENTORY_MST3 where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!Con.OpenRecordsetRO("rstA",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstA.EOF,=,False)
+			F.Data.DataTable.SetValue("Issue_Label",0,"InventoryUM","SF")
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstA.Close
+'
+	F.Intrinsic.String.Concat("select  JOB,SUFFIX,SEQUENCE,DATE_HISTORY, ORDER_NO,QUANTITY,RECEIVER,PURCHASE_ORDER  from V_ITEM_HISTORY  where PART='",V.Local.sPart.Trim,"' and SERIAL_NUMBER='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			V.Local.sRcvr.Set(V.ODBC.Con!rstX.FieldValTrim!RECEIVER)
+			V.Local.sPO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+			F.Data.DataTable.SetValue("Issue_Label",0,"PO",V.ODBC.Con!rstX.FieldValTrim!Purchase_Order)
+			F.Data.DataTable.SetValue("Issue_Label",0,"WO",V.ODBC.Con!rstX.FieldValTrim!Job)
+			F.Data.DataTable.SetValue("Issue_Label",0,"WOSuffix",V.ODBC.Con!rstX.FieldValTrim!Suffix)
+			F.Data.DataTable.SetValue("Issue_Label",0,"WOSeq",V.ODBC.Con!rstX.FieldValTrim!Sequence)
+			F.Data.DataTable.SetValue("Issue_Label",0,"DateRecd",V.ODBC.Con!rstX.FieldValTrim!Date_History)
+			F.Data.DataTable.SetValue("Issue_Label",0,"SO",V.ODBC.Con!rstX.FieldValTrim!Order_NO)
+'			V.uGlobal.ATG!Total_Qty.Set(V.ODBC.Con!rstX.FieldVal!QUANTITY)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.ATG!Total_Qty.Set(0)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+'	F.Intrinsic.String.Concat("select USER_1,USER_2 from V_PO_HEADER where PURCHASE_ORDER='",V.Local.sPO,"'",V.Local.sSel)
+'	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+'		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+'			V.uGlobal.ATG!USER_1.Set(V.ODBC.Con!rstX.FieldValTrim!USER_1)
+'			V.uGlobal.ATG!USER_2.Set(V.ODBC.Con!rstX.FieldValTrim!USER_2)
+'		F.Intrinsic.Control.EndIf
+'	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select PACK_LIST from PO_RECEIVER where RECEIVER_NO='",V.Local.sRcvr,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			F.Data.DataTable.SetValue("Issue_Label",0,"PackingListNo",V.ODBC.Con!rstX.FieldValTrim!PACK_LIST)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+	
+	F.Intrinsic.String.Build("SELECT QUANTITY FROM V_ITEM_MASTER WHERE PART = '{0}' AND SERIAL_NUMBER = '{1}'",V.Local.sPart,V.Local.sSerial,V.Local.sSel)
+	F.ODBC.Connection!Con.OpenLocalRecordSetRO("rstX",V.Local.sSel)
+	
+	F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,<>,True)
+		F.Data.DataTable.SetValue("Issue_Label",0,"TotalQty",V.ODBC.Con!rstX.FieldValString!QUANTITY)
+	F.Intrinsic.Control.Else
+		F.Data.DataTable.SetValue("Issue_Label",0,"TotalQty","0")		
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Con!rstX.Close
+
+F.Data.DataTable.SetValue("Issue_Label",0,"BIRUNID",V.Global.iBIRUNID)
+
+F.Global.BI.StopLogging(V.Global.iBIRUNID)
+
+F.Intrinsic.Control.DoUntil(V.Local.lRet,=,6)
+	F.Global.BI.PrintCodesoftLabelFromDatatable(V.Global.iBIRUNID,V.Global.iLogID,"Issue_Label","","",True)
+	F.Intrinsic.UI.Msgbox("Did label print correctly?","",4,V.Local.lRet)
+F.Intrinsic.Control.Loop
+
+''clear existing data on the table
+'F.Intrinsic.String.Concat("delete from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sDelete)
+'F.ODBC.Connection!Con.Execute(V.Local.sDelete)
+''open the table to add new data
+'F.Intrinsic.String.Concat("select * from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sSelA)
+'F.ODBC.Connection!Con.OpenRecordsetRW("rstA",V.Local.sSelA)
+'	Function.Intrinsic.Variable.SaveUDTToRecordset("con","rstA","Variable.uGlobal.ATG")
+'F.ODBC.Con!rstA.Close
+
+
+
+Program.Sub.Inventory_Label.End
+
+Program.Sub.Issues.Start
+
+V.Local.sLabelLoc.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sUpdate.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sLoc.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sSelA.Declare(String)
+V.Local.sDelete.Declare(String)
+V.Local.sSerial.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sRcvr.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.sLabelName.Declare(String)
+
+V.Local.fWidth.Declare(Float)
+V.Local.fLength.Declare(Float)
+
+V.Local.lWidths.Declare(Long)
+V.Local.lRptID.Declare(Long)
+V.Local.lLine.Declare(Long)
+V.Local.lRet.Declare(Long)
+
+'Issue Material
+F.Intrinsic.Control.If(V.Caller.Hook,=,28860)
+	V.Local.sPart.Set(V.Passed.PART)
+	V.Local.sSerial.Set(V.Passed.SERIAL)
+F.Intrinsic.Control.EndIf
+
+'set field references for inventory screen
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Part,"Part")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Bin")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Serial,"Serial")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length,"Length")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width,"Width")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"Total_Um")
+
+'many condition select statement
+	F.Intrinsic.String.Concat("select Part,Bin,Serial,Length, Width,round(Total,4) as Total,Total_Um from ATG_ITMST_LEN_WIDTH","",V.Local.sSel)
+	F.Intrinsic.String.Concat(V.Local.sSel," where ATG_ITMST_LEN_WIDTH.PART ='",V.Local.sPart.Trim,"' and SERIAL ='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			f.Intrinsic.Variable.LoadUDTFromRecordset("con","rstX","V.uGlobal.atg",false)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select  INVENTORY_MSTR.DESCRIPTION,INVENTORY_MSTR.UM_INVENTORY from INVENTORY_MSTR where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Inventory_Um.Set(V.ODBC.Con!rstX.FieldValTrim!UM_Inventory)
+			V.uGlobal.ATG!DESCRIPTION.Set(V.ODBC.Con!rstX.FieldValTrim!DESCRIPTION)
+		F.Intrinsic.Control.endif
+	F.ODBC.Con!rstX.Close
+
+'see if part is a roll; if it is, default the UM to IN
+	F.Intrinsic.String.Concat("select ROLL from INVENTORY_MST3 where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!Con.OpenRecordsetRO("rstA",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstA.EOF,=,False)
+			V.uGlobal.ATG!Inventory_Um.Set("IN")
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstA.Close
+
+F.Intrinsic.Debug.Stop
+	F.Intrinsic.String.Concat("select  JOB,SUFFIX,SEQUENCE,DATE_HISTORY, ORDER_NO,QUANTITY,RECEIVER,PURCHASE_ORDER  from V_ITEM_HISTORY  where PART='",V.Local.sPart.Trim,"' and SERIAL_NUMBER='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			V.Local.sRcvr.Set(V.ODBC.Con!rstX.FieldValTrim!RECEIVER)
+			V.Local.sPO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+			V.uGlobal.ATG!PO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+			V.uGlobal.ATG!Job.Set(V.ODBC.Con!rstX.FieldValTrim!JOB)
+			V.uGlobal.ATG!Suffix.Set(V.ODBC.Con!rstX.FieldValTrim!SUFFIX)
+			V.uGlobal.ATG!Seq.Set(V.ODBC.Con!rstX.FieldValTrim!SEQUENCE)
+			V.uGlobal.ATG!Date_Rcvd.Set(V.ODBC.Con!rstX.FieldVal!DATE_HISTORY)
+			V.uGlobal.ATG!Order_No.Set(V.ODBC.Con!rstX.FieldValTrim!ORDER_NO)
+'			V.uGlobal.ATG!Total_Qty.Set(V.ODBC.Con!rstX.FieldVal!QUANTITY)
+		F.Intrinsic.Control.Else
+			V.uGlobal.ATG!Total_Qty.Set(0)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select USER_1,USER_2 from V_PO_HEADER where PURCHASE_ORDER='",V.Local.sPO,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!USER_1.Set(V.ODBC.Con!rstX.FieldValTrim!USER_1)
+			V.uGlobal.ATG!USER_2.Set(V.ODBC.Con!rstX.FieldValTrim!USER_2)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select PACK_LIST from PO_RECEIVER where RECEIVER_NO='",V.Local.sRcvr,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Pcking_list_no.Set(V.ODBC.Con!rstX.FieldValTrim!PACK_LIST)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+Function.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.ATG!Trmnl,V.Caller.Terminal)
+
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Trmnl,"TRMNL")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Description,"Description")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Loc")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!PO,"PO")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pkg,"Pkg")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Invoice,"Invoice")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Vendor,"Vendor")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Order_No,"Order_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Job,"Job")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Suffix,"Suffix")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Seq,"Seq")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pcking_list_No,"Pcking_List_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Date_Rcvd,"Date_Rcvd")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Inventory_Um,"Inventory_Um")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total_Qty")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Bin,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_1,"User_1")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_2,"User_2")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width_Um,"")
+
+F.Intrinsic.Debug.Stop
+'clear existing data on the table
+F.Intrinsic.String.Concat("delete from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sDelete)
+F.ODBC.Connection!Con.Execute(V.Local.sDelete)
+'open the table to add new data
+F.Intrinsic.String.Concat("select * from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sSelA)
+F.ODBC.Connection!Con.OpenRecordsetRW("rstA",V.Local.sSelA)
+	Function.Intrinsic.Variable.SaveUDTToRecordset("con","rstA","Variable.uGlobal.ATG")
+F.ODBC.Con!rstA.Close
+
+
+Program.Sub.Issues.End
+
+Program.Sub.Drops.Start
+
+V.Local.sLabelLoc.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sUpdate.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sLoc.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sSelA.Declare(String)
+V.Local.sDelete.Declare(String)
+V.Local.sSerial.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sRcvr.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.sLabelName.Declare(String)
+
+V.Local.fWidth.Declare(Float)
+V.Local.fLength.Declare(Float)
+
+V.Local.lWidths.Declare(Long)
+V.Local.lRptID.Declare(Long)
+V.Local.lLine.Declare(Long)
+V.Local.lRet.Declare(Long)
+
+F.Intrinsic.Control.if(V.Caller.Hook,=,28862)
+	V.Local.sPart.Set(V.Passed.PART)
+	V.Local.sSerial.Set(V.Passed.SERIAL)
+F.Intrinsic.Control.EndIf
+
+'set field references for inventory screen
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Part,"Part")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Bin")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Serial,"Serial")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length,"Length")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width,"Width")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"Total_Um")
+
+'many condition select statement
+	F.Intrinsic.String.Concat("select Part,Bin,Serial,Length, Width,round(Total,4) as Total,Total_Um from ATG_ITMST_LEN_WIDTH","",V.Local.sSel)
+	F.Intrinsic.String.Concat(V.Local.sSel," where ATG_ITMST_LEN_WIDTH.PART = '",V.Local.sPart.Trim,"' and SERIAL ='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			f.Intrinsic.Variable.LoadUDTFromRecordset("con","rstX","V.uGlobal.atg",false)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select  INVENTORY_MSTR.DESCRIPTION,INVENTORY_MSTR.UM_INVENTORY from INVENTORY_MSTR where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Inventory_Um.Set(V.ODBC.Con!rstX.FieldValTrim!UM_Inventory)
+			V.uGlobal.ATG!DESCRIPTION.Set(V.ODBC.Con!rstX.FieldValTrim!DESCRIPTION)
+		F.Intrinsic.Control.endif
+	F.ODBC.Con!rstX.Close
+
+'see if part is a roll; if it is, default the UM to IN
+	F.Intrinsic.String.Concat("select ROLL from INVENTORY_MST3 where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!Con.OpenRecordsetRO("rstA",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstA.EOF,=,True)
+			V.uGlobal.ATG!Inventory_Um.Set("IN")
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstA.Close
+
+F.Intrinsic.Debug.Stop
+'	F.Intrinsic.String.Concat("select  JOB,SUFFIX,SEQUENCE,DATE_HISTORY, ORDER_NO,QUANTITY,RECEIVER,PURCHASE_ORDER  from V_ITEM_HISTORY  where PART='",V.Local.sPart.Trim,"' and SERIAL_NUMBER='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+'	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+''if rstX eof is false, add record to rstA
+'		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+'			V.Local.sRcvr.Set(V.ODBC.Con!rstX.FieldValTrim!RECEIVER)
+'			V.Local.sPO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+'			V.uGlobal.ATG!PO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+'			V.uGlobal.ATG!Job.Set(V.ODBC.Con!rstX.FieldValTrim!JOB)
+'			V.uGlobal.ATG!Suffix.Set(V.ODBC.Con!rstX.FieldValTrim!SUFFIX)
+'			V.uGlobal.ATG!Seq.Set(V.ODBC.Con!rstX.FieldValTrim!SEQUENCE)
+'			V.uGlobal.ATG!Date_Rcvd.Set(V.ODBC.Con!rstX.FieldVal!DATE_HISTORY)
+'			V.uGlobal.ATG!Order_No.Set(V.ODBC.Con!rstX.FieldValTrim!ORDER_NO)
+''			V.uGlobal.ATG!Total_Qty.Set(V.ODBC.Con!rstX.FieldVal!QUANTITY)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.ATG!Total_Qty.Set(0)
+'		F.Intrinsic.Control.EndIf
+'	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select USER_1,USER_2 from V_PO_HEADER where PURCHASE_ORDER='",V.Local.sPO,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!USER_1.Set(V.ODBC.Con!rstX.FieldValTrim!USER_1)
+			V.uGlobal.ATG!USER_2.Set(V.ODBC.Con!rstX.FieldValTrim!USER_2)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select PACK_LIST from PO_RECEIVER where RECEIVER_NO='",V.Local.sRcvr,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Pcking_list_no.Set(V.ODBC.Con!rstX.FieldValTrim!PACK_LIST)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+Function.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.ATG!Trmnl,V.Caller.Terminal)
+
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Trmnl,"TRMNL")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Description,"Description")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Loc")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!PO,"PO")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pkg,"Pkg")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Invoice,"Invoice")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Vendor,"Vendor")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Order_No,"Order_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Job,"Job")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Suffix,"Suffix")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Seq,"Seq")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pcking_list_No,"Pcking_List_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Date_Rcvd,"Date_Rcvd")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Inventory_Um,"Inventory_Um")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total_Qty")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Bin,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_1,"User_1")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_2,"User_2")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width_Um,"")
+
+F.Intrinsic.Debug.Stop
+'clear existing data on the table
+F.Intrinsic.String.Concat("delete from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sDelete)
+F.ODBC.Connection!Con.Execute(V.Local.sDelete)
+'open the table to add new data
+F.Intrinsic.String.Concat("select * from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sSelA)
+F.ODBC.Connection!Con.OpenRecordsetRW("rstA",V.Local.sSelA)
+	Function.Intrinsic.Variable.SaveUDTToRecordset("con","rstA","Variable.uGlobal.ATG")
+F.ODBC.Con!rstA.Close
+
+
+
+
+Program.Sub.Drops.End
+
+Program.Sub.AddDrops.Start
+
+
+V.Local.sLabelLoc.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sUpdate.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sLen.Declare(String)
+V.Local.sWidth.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sLoc.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sSelA.Declare(String)
+V.Local.sDelete.Declare(String)
+V.Local.sSerial.Declare(String)
+V.Local.sTitles.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sRcvr.Declare(String)
+V.Local.sPO.Declare(String)
+V.Local.sLabelName.Declare(String)
+
+V.Local.fWidth.Declare(Float)
+V.Local.fLength.Declare(Float)
+
+V.Local.lWidths.Declare(Long)
+V.Local.lRptID.Declare(Long)
+V.Local.lLine.Declare(Long)
+V.Local.lRet.Declare(Long)
+
+'get part from screen
+	V.uGlobal.ATG!Part.Set(V.Passed.000004)
+	V.uGlobal.ATG!Length.Set(V.Passed.000014)
+	V.uGlobal.ATG!Width.Set(V.Passed.000015)
+	V.uGlobal.ATG!Total_Qty.Set(V.Passed.000011)
+	V.uGlobal.ATG!Date_Rcvd.Set(v.Ambient.Date.pervasivedate)
+'set field references for inventory screen
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Part,"Part")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Bin")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Serial,"Serial_Number")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Quantity")
+
+'many condition select statement
+	F.Intrinsic.String.Concat("select Part,Bin,Serial_Number,round(Quantity,4) as Quantity from ITEM_MASTER where PART='",V.uGlobal.ATG!Part.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			f.Intrinsic.Variable.LoadUDTFromRecordset("con","rstX","V.uGlobal.atg",false)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select  INVENTORY_MSTR.DESCRIPTION,INVENTORY_MSTR.UM_INVENTORY from INVENTORY_MSTR where PART='",V.uGlobal.ATG!Part.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+'if rstX eof is false, add record to rstA
+		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Inventory_Um.Set(V.ODBC.Con!rstX.FieldValTrim!UM_Inventory)
+			V.uGlobal.ATG!DESCRIPTION.Set(V.ODBC.Con!rstX.FieldValTrim!DESCRIPTION)
+		F.Intrinsic.Control.endif
+	F.ODBC.Con!rstX.Close
+
+'see if part is a roll; if it is, default the UM to IN
+	F.Intrinsic.String.Concat("select ROLL from INVENTORY_MST3 where PART='",V.Local.sPart.Trim,"'",V.Local.sSel)
+	F.ODBC.Connection!Con.OpenRecordsetRO("rstA",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstA.EOF,=,False)
+			V.uGlobal.ATG!Inventory_Um.Set("IN")
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstA.Close
+
+F.Intrinsic.Debug.Stop
+'	F.Intrinsic.String.Concat("select  JOB,SUFFIX,SEQUENCE,DATE_HISTORY, ORDER_NO,QUANTITY,RECEIVER,PURCHASE_ORDER  from V_ITEM_HISTORY  where PART='",V.Local.sPart.Trim,"' and SERIAL_NUMBER='",V.Local.sSerial.Trim,"'",V.Local.sSel)
+'	F.ODBC.Connection!con.OpenRecordsetRO("rstX",V.Local.sSel)
+''if rstX eof is false, add record to rstA
+'		F.Intrinsic.Control.If(V.ODBC.con!rstX.EOF,=,False)
+'			V.Local.sRcvr.Set(V.ODBC.Con!rstX.FieldValTrim!RECEIVER)
+'			V.Local.sPO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+'			V.uGlobal.ATG!PO.Set(V.ODBC.Con!rstX.FieldValTrim!PURCHASE_ORDER)
+'			V.uGlobal.ATG!Job.Set(V.ODBC.Con!rstX.FieldValTrim!JOB)
+'			V.uGlobal.ATG!Suffix.Set(V.ODBC.Con!rstX.FieldValTrim!SUFFIX)
+'			V.uGlobal.ATG!Seq.Set(V.ODBC.Con!rstX.FieldValTrim!SEQUENCE)
+'			V.uGlobal.ATG!Date_Rcvd.Set(V.ODBC.Con!rstX.FieldVal!DATE_HISTORY)
+'			V.uGlobal.ATG!Order_No.Set(V.ODBC.Con!rstX.FieldValTrim!ORDER_NO)
+''			V.uGlobal.ATG!Total_Qty.Set(V.ODBC.Con!rstX.FieldVal!QUANTITY)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.ATG!Total_Qty.Set(0)
+'		F.Intrinsic.Control.EndIf
+'	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select USER_1,USER_2 from V_PO_HEADER where PURCHASE_ORDER='",V.Local.sPO,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!USER_1.Set(V.ODBC.Con!rstX.FieldValTrim!USER_1)
+			V.uGlobal.ATG!USER_2.Set(V.ODBC.Con!rstX.FieldValTrim!USER_2)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+	F.Intrinsic.String.Concat("select PACK_LIST from PO_RECEIVER where RECEIVER_NO='",V.Local.sRcvr,"'",V.Local.sSel)
+	F.ODBc.Connection!Con.OpenRecordsetRO("rstX",V.Local.sSel)
+		F.Intrinsic.Control.If(V.ODBC.Con!rstX.EOF,=,False)
+			V.uGlobal.ATG!Pcking_list_no.Set(V.ODBC.Con!rstX.FieldValTrim!PACK_LIST)
+		F.Intrinsic.Control.EndIf
+	F.ODBC.Con!rstX.Close
+
+Function.Intrinsic.Variable.UDTSetMemberValue(V.uGlobal.ATG!Trmnl,V.Caller.Terminal)
+
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Trmnl,"TRMNL")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Serial,"Serial")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length,"Length")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width,"Width")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Description,"Description")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Loc,"Loc")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!PO,"PO")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pkg,"Pkg")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Invoice,"Invoice")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Vendor,"Vendor")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Order_No,"Order_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Job,"Job")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Suffix,"Suffix")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Seq,"Seq")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Pcking_list_No,"Pcking_List_No")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Date_Rcvd,"Date_Rcvd")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Inventory_Um,"Inventory_Um")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Qty,"Total_Qty")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Bin,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Total_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_1,"User_1")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!User_2,"User_2")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Length_Um,"")
+Function.Intrinsic.Variable.SetUDTFieldReference(V.uGlobal.ATG!Width_Um,"")
+
+F.Intrinsic.Debug.Stop
+'clear existing data on the table
+F.Intrinsic.String.Concat("delete from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sDelete)
+F.ODBC.Connection!Con.Execute(V.Local.sDelete)
+'open the table to add new data
+F.Intrinsic.String.Concat("select * from ATG_SF_ISSUE_DRP_LBL where TRMNL='",V.Caller.Terminal,"'",V.Local.sSelA)
+F.ODBC.Connection!Con.OpenRecordsetRW("rstA",V.Local.sSelA)
+	Function.Intrinsic.Variable.SaveUDTToRecordset("con","rstA","Variable.uGlobal.ATG")
+F.ODBC.Con!rstA.Close
+
+
+
+
+
+
+Program.Sub.AddDrops.End
+
+
